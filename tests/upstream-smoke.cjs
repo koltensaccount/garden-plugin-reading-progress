@@ -9,9 +9,11 @@ const root = path.resolve(__dirname, "..");
 const garden = process.env.DG_TEST_GARDEN;
 if (!garden) throw new Error("Set DG_TEST_GARDEN to the existing upstream integration garden containing /reading-lab/.");
 const ids = ["resizable-panes", "toc-settings", "reading-progress", "theme-toggle", "clean-print", "heading-folding"];
+const includeNoteLock = process.env.DG_TEST_INCLUDE_NOTE_LOCK === "1";
+if (includeNoteLock) ids.push("note-lock");
 const manifests = {};
 for (const id of ids) {
-  const source = path.join(path.dirname(root), "garden-plugin-" + id);
+  const source = id === "note-lock" && process.env.DG_NOTE_LOCK_SOURCE || path.join(path.dirname(root), "garden-plugin-" + id);
   const target = path.join(garden, "src/plugins", id);
   const manifest = JSON.parse(fs.readFileSync(path.join(source, "garden-plugin.json")));
   manifests[id] = manifest;
@@ -23,11 +25,12 @@ for (const id of ids) {
     fs.cpSync(path.join(source, file), path.join(target, file), { recursive: true });
   }
 }
-// Enable only this six-plugin set, leaving other installed test plugins disabled.
+// Enable only the requested test set, leaving other installed test plugins disabled.
 const plugins = {};
 for (const entry of fs.readdirSync(path.join(garden, "src/plugins"), { withFileTypes: true })) {
   if (entry.isDirectory()) plugins[entry.name] = { enabled: ids.includes(entry.name) };
 }
+if (includeNoteLock) plugins["note-lock"].settings = { defaultPassword: "integration fixture only", notePasswords: "{}" };
 fs.writeFileSync(path.join(garden, "src/plugins/plugins.json"), JSON.stringify({ plugins }, null, 2));
 console.log("Upstream:", execFileSync("git", ["rev-parse", "HEAD"], { cwd: garden, encoding: "utf8" }).trim());
 execFileSync("npm", ["run", "build"], { cwd: garden, env: { ...process.env, SITE_BASE_URL: "http://localhost", BASE_THEME: "dark" }, stdio: "inherit" });
@@ -132,6 +135,16 @@ async function smoke(browser, base, enabled, exercise) {
       await page.waitForFunction(() => window.readingTimeTraversals === 1);
       assert.equal(await page.locator(".dg-reading-progress").count(), 1);
     }
+    if (enabled.includes("note-lock")) {
+      await page.goto(base + "/locked-demonstration/?plugins=" + enabled.join(","), { waitUntil: "networkidle" });
+      assert.equal(await page.locator('.dg-note-lock').isVisible(), true);
+      await page.locator('#dg-note-lock-password').fill('integration fixture only');
+      await page.locator('.dg-note-lock-submit').click();
+      await page.waitForFunction(() => !document.documentElement.classList.contains('dg-note-locked'));
+      await page.waitForFunction(() => window.readingTimeTraversals === 1);
+      await progressMatchesGeometry(page);
+      assert.equal(await page.locator('.dg-reading-progress').count(), 1);
+    }
     assert.deepEqual(errors, []);
     console.log("PASS", enabled.join(" + "));
   } finally { await page.close(); }
@@ -150,7 +163,7 @@ async function smoke(browser, base, enabled, exercise) {
     for (const [name, engine] of Object.entries({ Firefox: firefox, WebKit: webkit })) {
       if (!fs.existsSync(engine.executablePath())) { console.log("UNAVAILABLE", name, "(no existing Playwright browser binary; no installation attempted)"); continue; }
       const browser = await engine.launch({ headless: true });
-      try { await smoke(browser, base, ids, false); console.log("PASS", name, "all-six smoke"); }
+      try { await smoke(browser, base, ids, false); console.log("PASS", name, includeNoteLock ? "all-seven smoke" : "all-six smoke"); }
       finally { await browser.close(); }
     }
   } finally { await new Promise(resolve => server.close(resolve)); }
