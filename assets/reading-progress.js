@@ -53,6 +53,8 @@
       }
     }
     var queued = false;
+    var readingTimeDirty = true;
+    var excludedText = "script,style,button,.dg-print-heading,.dg-reading-meta";
     function update() {
       queued = false;
       var rect = content.getBoundingClientRect();
@@ -61,12 +63,13 @@
       bar.hidden = config.hideOnShortNotes !== false && range <= 0;
       fill.style.transform = "scaleX(" + progress + ")";
       bar.setAttribute("aria-valuenow", String(Math.round(progress * 100)));
-      if (estimate && config.showReadingTime !== false) {
+      if (estimate && config.showReadingTime !== false && readingTimeDirty) {
+        readingTimeDirty = false;
         var walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
         var words = 0;
         while (walker.nextNode()) {
           var text = walker.currentNode;
-          if (!text.parentElement.closest("script,style,button,.dg-print-heading,.dg-reading-meta")) words += (text.textContent.trim().match(/\S+/g) || []).length;
+          if (!text.parentElement.closest(excludedText)) words += (text.textContent.trim().match(/\S+/g) || []).length;
         }
         var minutes = Math.max(1, Math.ceil(words / Math.max(120, Math.min(400, Number(config.wordsPerMinute) || 220))));
         var label = minutes + " min read";
@@ -77,6 +80,23 @@
       if (queued) return;
       queued = true;
       window.requestAnimationFrame(update);
+    }
+    if (estimate && config.showReadingTime !== false && window.MutationObserver) {
+      function affectsReadingTime(node) {
+        var element = node.nodeType === 1 ? node : node.parentElement;
+        return !element || !element.closest(excludedText);
+      }
+      new MutationObserver(function (records) {
+        if (records.some(function (record) {
+          var removedText = record.type === "childList" && Array.from(record.removedNodes).some(function (node) {
+            return node.nodeType !== 1 || !node.matches(excludedText);
+          });
+          return affectsReadingTime(record.target) && (record.type === "characterData" || removedText || Array.from(record.addedNodes).some(affectsReadingTime));
+        })) {
+          readingTimeDirty = true;
+          schedule();
+        }
+      }).observe(content, { childList: true, characterData: true, subtree: true });
     }
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", schedule, { passive: true });

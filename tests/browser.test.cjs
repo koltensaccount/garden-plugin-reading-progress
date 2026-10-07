@@ -49,6 +49,14 @@ test("browser feature, keyboard, repeat initialization and responsive safety", {
   const browser = await chromium.launch({ executablePath: chrome, headless: true, args: ["--no-sandbox"] });
   try {
     const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+    await page.addInitScript(() => {
+      const original = document.createTreeWalker;
+      window.wordCountTraversals = 0;
+      document.createTreeWalker = function (...args) {
+        window.wordCountTraversals++;
+        return original.apply(this, args);
+      };
+    });
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.goto(base);
@@ -85,7 +93,39 @@ test("browser feature, keyboard, repeat initialization and responsive safety", {
       await page.waitForTimeout(80);
       assert.equal(await page.locator(".toc-container a.toc-active").count(), 1);
     } else if (id === "reading-progress") {
+      await page.waitForFunction(() => document.querySelector('.dg-reading-meta span').textContent.includes('min read'));
       assert.match(await page.locator(".dg-reading-meta").textContent(), /min read/);
+      assert.equal(await page.evaluate(() => window.wordCountTraversals), 1);
+      await page.evaluate(async () => {
+        for (let i = 0; i < 10; i++) {
+          window.dispatchEvent(new Event('scroll'));
+          window.dispatchEvent(new Event('resize'));
+          document.dispatchEvent(new Event('dg:fold-change'));
+          document.dispatchEvent(new Event('dg:layout-change'));
+          await new Promise(requestAnimationFrame);
+        }
+      });
+      assert.equal(await page.evaluate(() => window.wordCountTraversals), 1, 'Scroll and geometry updates reuse the estimate');
+      const label = await page.locator('.dg-reading-meta span').textContent();
+      await page.evaluate(() => { document.getElementById('first-body').firstChild.data = 'Changed text '.repeat(2200); });
+      await page.waitForFunction(() => window.wordCountTraversals === 2);
+      assert.notEqual(await page.locator('.dg-reading-meta span').textContent(), label);
+      await page.evaluate(() => {
+        const excluded = document.createElement('div');
+        excluded.className = 'dg-print-heading'; excluded.textContent = 'Excluded print heading';
+        const button = document.createElement('button'); button.textContent = 'Excluded control';
+        document.querySelector('main.content').append(excluded, button);
+      });
+      await page.waitForTimeout(80);
+      assert.equal(await page.evaluate(() => window.wordCountTraversals), 2);
+      await page.evaluate(() => {
+        const paragraph = document.createElement('p'); paragraph.id = 'dynamic-text';
+        paragraph.textContent = 'Added words '.repeat(2200);
+        document.querySelector('main.content').appendChild(paragraph);
+      });
+      await page.waitForFunction(() => window.wordCountTraversals === 3);
+      await page.evaluate(() => document.getElementById('dynamic-text').remove());
+      await page.waitForFunction(() => window.wordCountTraversals === 4);
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       await page.waitForTimeout(300);
       assert.equal(await page.locator(".dg-reading-progress").getAttribute("aria-valuenow"), "100");

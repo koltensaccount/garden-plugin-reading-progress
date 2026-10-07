@@ -1,7 +1,7 @@
 {
   "id": "reading-progress",
   "name": "Reading Progress & Resume",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A theme-aware reading progress bar with reading-time estimates and optional per-note resume prompts.",
   "author": "Kolten Bendickson",
   "slots": {
