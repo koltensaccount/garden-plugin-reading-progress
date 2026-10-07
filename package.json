@@ -1,0 +1,11 @@
+{
+  "name": "garden-plugin-reading-progress",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "check": "node --check assets/reading-progress.js",
+    "test": "node --test tests/*.test.cjs",
+    "install:garden": "node scripts/install.cjs"
+  },
+  "engines": { "node": ">=22" }
+}

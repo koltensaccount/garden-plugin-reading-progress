@@ -1,0 +1,16 @@
+{
+  "id": "reading-progress",
+  "name": "Reading Progress",
+  "version": "1.0.0",
+  "description": "A slim reading progress bar that automatically follows the applied theme's accent color.",
+  "author": "Kolten Bendickson",
+  "slots": { "common.footer": "templates/config.njk" },
+  "styles": ["styles/reading-progress.css"],
+  "scripts": ["assets/reading-progress.js"],
+  "settings": [
+    { "key": "height", "name": "Bar height (px)", "type": "number", "default": 3 },
+    { "key": "bottom", "name": "Place at bottom of screen", "type": "boolean", "default": false },
+    { "key": "showTrack", "name": "Show subtle background track", "type": "boolean", "default": true },
+    { "key": "hideOnShortNotes", "name": "Hide on notes shorter than one screen", "type": "boolean", "default": true }
+  ]
+}
