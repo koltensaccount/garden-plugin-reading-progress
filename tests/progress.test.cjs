@@ -23,14 +23,16 @@ function setup({ height = 2000, top = 0, config = {}, canvas = false } = {}) {
     };
   }
   const window = {
-    innerHeight: 800, DG_READING_PROGRESS: config, ResizeObserver: true,
+    innerHeight: 800, DG_READING_PROGRESS: { showReadingTime: false, ...config }, ResizeObserver: true,
     requestAnimationFrame(fn) { frames.push(fn); },
     addEventListener(name, fn) { listeners[name] = fn; }
   };
   vm.runInNewContext(source, {
     window,
+    location: { pathname: "/test/" },
     document: {
       readyState: "complete",
+      addEventListener() {},
       querySelector: selector => selector.includes("main.content") ? content : null,
       createElement: element,
       body: { appendChild(el) { bar = el; } }

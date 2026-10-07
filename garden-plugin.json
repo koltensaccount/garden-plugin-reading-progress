@@ -1,16 +1,60 @@
 {
   "id": "reading-progress",
-  "name": "Reading Progress",
+  "name": "Reading Progress & Resume",
   "version": "1.0.0",
-  "description": "A slim reading progress bar that automatically follows the applied theme's accent color.",
+  "description": "A theme-aware reading progress bar with reading-time estimates and optional per-note resume prompts.",
   "author": "Kolten Bendickson",
-  "slots": { "common.footer": "templates/config.njk" },
-  "styles": ["styles/reading-progress.css"],
-  "scripts": ["assets/reading-progress.js"],
+  "slots": {
+    "common.footer": "templates/config.njk"
+  },
+  "styles": [
+    "styles/reading-progress.css"
+  ],
+  "scripts": [
+    "assets/reading-progress.js"
+  ],
   "settings": [
-    { "key": "height", "name": "Bar height (px)", "type": "number", "default": 3 },
-    { "key": "bottom", "name": "Place at bottom of screen", "type": "boolean", "default": false },
-    { "key": "showTrack", "name": "Show subtle background track", "type": "boolean", "default": true },
-    { "key": "hideOnShortNotes", "name": "Hide on notes shorter than one screen", "type": "boolean", "default": true }
+    {
+      "key": "height",
+      "name": "Bar height (px)",
+      "type": "number",
+      "default": 3
+    },
+    {
+      "key": "bottom",
+      "name": "Place at bottom of screen",
+      "type": "boolean",
+      "default": false
+    },
+    {
+      "key": "showTrack",
+      "name": "Show subtle background track",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "hideOnShortNotes",
+      "name": "Hide on notes shorter than one screen",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "showReadingTime",
+      "name": "Show estimated reading time",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "resumeReading",
+      "name": "Offer resume reading",
+      "type": "boolean",
+      "default": false
+    },
+    {
+      "key": "wordsPerMinute",
+      "name": "Reading speed (words/minute)",
+      "type": "number",
+      "default": 220
+    }
   ]
 }

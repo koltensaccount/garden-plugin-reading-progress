@@ -18,6 +18,40 @@
     fill.className = "dg-reading-progress-fill";
     bar.appendChild(fill);
     document.body.appendChild(bar);
+    var meta;
+    var estimate;
+    var resume;
+    var positionKey = "dgReadingProgress.position:" + location.pathname;
+    var savedPosition;
+    if (config.showReadingTime !== false || config.resumeReading === true) {
+      var header = content.querySelector(":scope > header");
+      if (header) {
+        meta = document.createElement("div");
+        meta.className = "dg-reading-meta";
+        estimate = document.createElement("span");
+        meta.appendChild(estimate);
+        if (config.resumeReading === true) {
+          try { savedPosition = JSON.parse(localStorage.getItem(positionKey) || "null"); } catch (_) {}
+          resume = document.createElement("button");
+          resume.type = "button";
+          resume.textContent = "Resume reading";
+          resume.hidden = !savedPosition || !Number.isFinite(savedPosition.fraction) || savedPosition.fraction < 0.03 || savedPosition.fraction > 0.97;
+          resume.addEventListener("click", function () {
+            if (document.documentElement.classList.contains("dg-note-locked")) return;
+            var target = typeof savedPosition.heading === "string" && document.getElementById(savedPosition.heading);
+            if (target) document.dispatchEvent(new CustomEvent("dg:reveal-target", { detail: { id: target.id } }));
+            window.requestAnimationFrame(function () {
+              var rect = content.getBoundingClientRect();
+              var top = target ? window.scrollY + target.getBoundingClientRect().top + Math.max(0, Math.min(Number(savedPosition.offset) || 0, window.innerHeight)) : window.scrollY + rect.top + savedPosition.fraction * Math.max(0, rect.height - window.innerHeight);
+              window.scrollTo({ top: top, behavior: "auto" });
+              resume.hidden = true;
+            });
+          });
+          meta.appendChild(resume);
+        }
+        header.appendChild(meta);
+      }
+    }
     var queued = false;
     function update() {
       queued = false;
@@ -27,6 +61,17 @@
       bar.hidden = config.hideOnShortNotes !== false && range <= 0;
       fill.style.transform = "scaleX(" + progress + ")";
       bar.setAttribute("aria-valuenow", String(Math.round(progress * 100)));
+      if (estimate && config.showReadingTime !== false) {
+        var walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+        var words = 0;
+        while (walker.nextNode()) {
+          var text = walker.currentNode;
+          if (!text.parentElement.closest("script,style,button,.dg-print-heading,.dg-reading-meta")) words += (text.textContent.trim().match(/\S+/g) || []).length;
+        }
+        var minutes = Math.max(1, Math.ceil(words / Math.max(120, Math.min(400, Number(config.wordsPerMinute) || 220))));
+        var label = minutes + " min read";
+        if (estimate.textContent !== label) estimate.textContent = label;
+      }
     }
     function schedule() {
       if (queued) return;
@@ -37,6 +82,25 @@
     window.addEventListener("resize", schedule, { passive: true });
     window.addEventListener("load", schedule, { once: true });
     window.addEventListener("pageshow", schedule);
+    document.addEventListener("dg:fold-change", schedule);
+    document.addEventListener("dg:layout-change", schedule);
+    document.addEventListener("dg:appearance-change", schedule);
+    document.addEventListener("dg:note-unlocked", schedule);
+    if (config.resumeReading === true) {
+      var saveTimer;
+      function savePosition() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function () {
+          if (document.documentElement.classList.contains("dg-note-locked") || window.matchMedia("print").matches) return;
+          var rect = content.getBoundingClientRect();
+          var fraction = rect.height <= window.innerHeight ? 0 : Math.max(0, Math.min(1, -rect.top / (rect.height - window.innerHeight)));
+          var current;
+          content.querySelectorAll("h1[id],h2[id],h3[id],h4[id],h5[id],h6[id]").forEach(function (heading) { if (heading.getClientRects().length && heading.getBoundingClientRect().top <= 100) current = heading; });
+          try { localStorage.setItem(positionKey, JSON.stringify({ fraction: fraction, heading: current && current.id, offset: current ? -current.getBoundingClientRect().top : 0 })); } catch (_) {}
+        }, 250);
+      }
+      window.addEventListener("scroll", savePosition, { passive: true });
+    }
     if (window.ResizeObserver) new ResizeObserver(schedule).observe(content);
     if (document.fonts) document.fonts.ready.then(schedule);
     schedule();
